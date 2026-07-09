@@ -1,17 +1,17 @@
+import crypto from "crypto";
+import Razorpay from "razorpay";
 import orderModel from "../models/orderModel.js";
 import userModel from "../models/userModel.js";
-import Stripe from "stripe";
 
-const stripe = process.env.STRIPE_SECRET_KEY
-  ? new Stripe(process.env.STRIPE_SECRET_KEY)
+const razorpay = process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET
+  ? new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    })
   : null;
 
 const isValidAddress = (address) => {
   return address && typeof address === "object" && Object.keys(address).length > 0;
-};
-
-const getFrontendUrl = () => {
-  return (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
 };
 
 const placeOrder = async (req, res) => {
@@ -30,8 +30,8 @@ const placeOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: "Delivery address is required" });
     }
 
-    if (!stripe) {
-      return res.status(500).json({ success: false, message: "Stripe secret key is not configured" });
+    if (!razorpay) {
+      return res.status(500).json({ success: false, message: "Razorpay keys are not configured" });
     }
 
     const newOrder = new orderModel({
@@ -43,26 +43,11 @@ const placeOrder = async (req, res) => {
     });
 
     const order = await newOrder.save();
-    const frontendUrl = getFrontendUrl();
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      mode: "payment",
-      client_reference_id: order._id.toString(),
-      line_items: [
-        {
-          price_data: {
-            currency: "inr",
-            product_data: {
-              name: "Food Order",
-            },
-            unit_amount: Math.round(Number(amount) * 100),
-          },
-          quantity: 1,
-        },
-      ],
-      success_url: `${frontendUrl}/verify?success=true&orderId=${order._id}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${frontendUrl}/verify?success=false&orderId=${order._id}`,
-      metadata: {
+    const razorpayOrder = await razorpay.orders.create({
+      amount: Math.round(Number(amount) * 100),
+      currency: "INR",
+      receipt: order._id.toString(),
+      notes: {
         orderId: order._id.toString(),
         userId: req.user.id,
       },
@@ -70,9 +55,13 @@ const placeOrder = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: "Stripe checkout session created",
+      message: "Razorpay order created",
       order,
-      session_url: session.url,
+      orderId: order._id,
+      razorpayOrderId: razorpayOrder.id,
+      amount: razorpayOrder.amount,
+      currency: razorpayOrder.currency,
+      keyId: process.env.RAZORPAY_KEY_ID,
     });
   } catch (error) {
     console.error("Place order error:", error);
@@ -82,14 +71,19 @@ const placeOrder = async (req, res) => {
 
 const verifyOrder = async (req, res) => {
   try {
-    const { orderId, sessionId } = req.body;
+    const {
+      orderId,
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+    } = req.body;
 
-    if (!orderId || !sessionId) {
-      return res.status(400).json({ success: false, message: "Order ID and session ID are required" });
+    if (!orderId || !razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({ success: false, message: "Payment verification data is required" });
     }
 
-    if (!stripe) {
-      return res.status(500).json({ success: false, message: "Stripe secret key is not configured" });
+    if (!process.env.RAZORPAY_KEY_SECRET) {
+      return res.status(500).json({ success: false, message: "Razorpay key secret is not configured" });
     }
 
     const order = await orderModel.findOne({ _id: orderId, userId: req.user.id });
@@ -97,13 +91,14 @@ const verifyOrder = async (req, res) => {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
 
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
-    const matchesOrder =
-      session.client_reference_id === orderId ||
-      session.metadata?.orderId === orderId;
+    const body = `${razorpay_order_id}|${razorpay_payment_id}`;
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(body)
+      .digest("hex");
 
-    if (!matchesOrder || session.payment_status !== "paid") {
-      return res.status(400).json({ success: false, message: "Payment is not verified" });
+    if (expectedSignature !== razorpay_signature) {
+      return res.status(400).json({ success: false, message: "Payment signature verification failed" });
     }
 
     order.payment = true;

@@ -1,10 +1,27 @@
 import React, { useContext, useState } from 'react'
 import './PlaceOrder.css'
 import axios from 'axios'
+import { useNavigate } from 'react-router-dom'
 import { StoreContext } from '../../context/StoreContext'
 
+const loadRazorpayScript = () => {
+  return new Promise((resolve) => {
+    if (window.Razorpay) {
+      resolve(true)
+      return
+    }
+
+    const script = document.createElement('script')
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+    script.onload = () => resolve(true)
+    script.onerror = () => resolve(false)
+    document.body.appendChild(script)
+  })
+}
+
 const PlaceOrder = () => {
-  const { apiUrl, cartItems, food_list, getTotalCartAmount, token } = useContext(StoreContext)
+  const { apiUrl, cartItems, clearCart, food_list, getTotalCartAmount, token } = useContext(StoreContext)
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [address, setAddress] = useState({
     firstName: '',
@@ -50,6 +67,13 @@ const PlaceOrder = () => {
 
     try {
       setLoading(true)
+
+      const scriptLoaded = await loadRazorpayScript()
+      if (!scriptLoaded) {
+        alert('Unable to load Razorpay checkout')
+        return
+      }
+
       const response = await axios.post(
         `${apiUrl}/order/place`,
         {
@@ -57,14 +81,56 @@ const PlaceOrder = () => {
           amount: total,
           address,
         },
-        { headers: { token } }
+        { headers: { Authorization: `Bearer ${token}` } }
       )
 
-      if (response.data.success && response.data.session_url) {
-        window.location.href = response.data.session_url
-      } else {
-        alert(response.data.message || 'Unable to start checkout')
+      if (!response.data.success) {
+        alert(response.data.message || 'Unable to start payment')
+        return
       }
+
+      const options = {
+        key: response.data.keyId,
+        amount: response.data.amount,
+        currency: response.data.currency,
+        name: 'Food Delivery',
+        description: 'Food order payment',
+        order_id: response.data.razorpayOrderId,
+        prefill: {
+          name: `${address.firstName} ${address.lastName}`.trim(),
+          email: address.email,
+          contact: address.phone,
+        },
+        handler: async (paymentResponse) => {
+          try {
+            const verifyResponse = await axios.post(
+              `${apiUrl}/order/verify`,
+              {
+                orderId: response.data.orderId,
+                razorpay_order_id: paymentResponse.razorpay_order_id,
+                razorpay_payment_id: paymentResponse.razorpay_payment_id,
+                razorpay_signature: paymentResponse.razorpay_signature,
+              },
+              { headers: { Authorization: `Bearer ${token}` } }
+            )
+
+            if (verifyResponse.data.success) {
+              clearCart()
+              navigate('/myorders')
+            } else {
+              alert(verifyResponse.data.message || 'Payment verification failed')
+            }
+          } catch (error) {
+            alert(error.response?.data?.message || 'Payment verification failed')
+          }
+        },
+        modal: {
+          ondismiss: () => setLoading(false),
+        },
+      }
+
+      const razorpay = new window.Razorpay(options)
+      razorpay.open()
     } catch (error) {
       alert(error.response?.data?.message || 'Unable to place order')
       console.error(error)
@@ -112,7 +178,7 @@ const PlaceOrder = () => {
                 <b>₹ {total}</b>
               </div>
             </div>
-            <button type="submit" disabled={loading}>{loading ? 'REDIRECTING...' : 'PROCEED TO CHECKOUT'}</button>
+            <button type="submit" disabled={loading}>{loading ? 'PROCESSING...' : 'PROCEED TO CHECKOUT'}</button>
           </div>
         </div>
     </form>
