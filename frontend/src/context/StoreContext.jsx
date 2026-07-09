@@ -12,7 +12,7 @@ const StoreContextProvider = ({ children }) => {
   const configuredUrl = import.meta.env.VITE_API_URL || "http://localhost:4000";
   const baseUrl = configuredUrl.replace(/\/api\/?$/, "").replace(/\/$/, "");
   const apiUrl = `${baseUrl}/api`;
-  const authHeaders = token ? { token } : {};
+  const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
 
   const getImageUrl = (item) => {
     if (!item?.image) return "";
@@ -37,8 +37,9 @@ const StoreContextProvider = ({ children }) => {
   };
 
   const addToCart = async (itemId) => {
+    updateLocalCartAdd(itemId);
+
     if (!token) {
-      updateLocalCartAdd(itemId);
       return;
     }
 
@@ -55,8 +56,9 @@ const StoreContextProvider = ({ children }) => {
   };
 
   const removeFromCart = async (itemId) => {
+    updateLocalCartRemove(itemId);
+
     if (!token) {
-      updateLocalCartRemove(itemId);
       return;
     }
 
