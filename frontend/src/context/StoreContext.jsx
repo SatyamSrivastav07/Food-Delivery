@@ -83,6 +83,10 @@ const StoreContextProvider = ({ children }) => {
     }
   };
 
+  const clearCart = () => {
+    setCartItems({});
+  };
+
   const getTotalCartAmount = () => {
     return Object.entries(cartItems).reduce((total, [id, qty]) => {
       const item = food_list.find((food) => food._id === id || food._id === Number(id));
@@ -128,6 +132,7 @@ const StoreContextProvider = ({ children }) => {
         getTotalCartAmount,
         getTotalCartItems,
         getImageUrl,
+        clearCart,
         apiUrl,
         baseUrl,
         token,

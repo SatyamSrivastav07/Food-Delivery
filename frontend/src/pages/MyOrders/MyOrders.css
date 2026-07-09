@@ -1,0 +1,34 @@
+.my-orders {
+  margin: 50px 0;
+}
+
+.my-orders h2 {
+  margin-bottom: 24px;
+}
+
+.my-orders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.my-orders-order {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 16px;
+  align-items: center;
+  border: 1px solid #ddd;
+  padding: 16px;
+  color: #505050;
+}
+
+.my-orders-items {
+  font-weight: 600;
+  color: #333;
+}
+
+@media (max-width: 750px) {
+  .my-orders-order {
+    grid-template-columns: 1fr;
+  }
+}

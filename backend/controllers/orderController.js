@@ -1,8 +1,17 @@
 import orderModel from "../models/orderModel.js";
 import userModel from "../models/userModel.js";
+import Stripe from "stripe";
+
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_SECRET_KEY)
+  : null;
 
 const isValidAddress = (address) => {
   return address && typeof address === "object" && Object.keys(address).length > 0;
+};
+
+const getFrontendUrl = () => {
+  return (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
 };
 
 const placeOrder = async (req, res) => {
@@ -21,6 +30,10 @@ const placeOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: "Delivery address is required" });
     }
 
+    if (!stripe) {
+      return res.status(500).json({ success: false, message: "Stripe secret key is not configured" });
+    }
+
     const newOrder = new orderModel({
       userId: req.user.id,
       items,
@@ -30,16 +43,77 @@ const placeOrder = async (req, res) => {
     });
 
     const order = await newOrder.save();
-    await userModel.findByIdAndUpdate(req.user.id, { cartData: {} });
+    const frontendUrl = getFrontendUrl();
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      mode: "payment",
+      client_reference_id: order._id.toString(),
+      line_items: [
+        {
+          price_data: {
+            currency: "inr",
+            product_data: {
+              name: "Food Order",
+            },
+            unit_amount: Math.round(Number(amount) * 100),
+          },
+          quantity: 1,
+        },
+      ],
+      success_url: `${frontendUrl}/verify?success=true&orderId=${order._id}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${frontendUrl}/verify?success=false&orderId=${order._id}`,
+      metadata: {
+        orderId: order._id.toString(),
+        userId: req.user.id,
+      },
+    });
 
     res.status(201).json({
       success: true,
-      message: "Order placed successfully",
+      message: "Stripe checkout session created",
       order,
+      session_url: session.url,
     });
   } catch (error) {
     console.error("Place order error:", error);
     res.status(500).json({ success: false, message: "Failed to place order" });
+  }
+};
+
+const verifyOrder = async (req, res) => {
+  try {
+    const { orderId, sessionId } = req.body;
+
+    if (!orderId || !sessionId) {
+      return res.status(400).json({ success: false, message: "Order ID and session ID are required" });
+    }
+
+    if (!stripe) {
+      return res.status(500).json({ success: false, message: "Stripe secret key is not configured" });
+    }
+
+    const order = await orderModel.findOne({ _id: orderId, userId: req.user.id });
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    const matchesOrder =
+      session.client_reference_id === orderId ||
+      session.metadata?.orderId === orderId;
+
+    if (!matchesOrder || session.payment_status !== "paid") {
+      return res.status(400).json({ success: false, message: "Payment is not verified" });
+    }
+
+    order.payment = true;
+    await order.save();
+    await userModel.findByIdAndUpdate(req.user.id, { cartData: {} });
+
+    res.json({ success: true, message: "Payment verified", order });
+  } catch (error) {
+    console.error("Verify order error:", error);
+    res.status(500).json({ success: false, message: "Failed to verify payment" });
   }
 };
 
@@ -92,4 +166,4 @@ const updateStatus = async (req, res) => {
   }
 };
 
-export { placeOrder, userOrders, listOrders, updateStatus };
+export { placeOrder, verifyOrder, userOrders, listOrders, updateStatus };
