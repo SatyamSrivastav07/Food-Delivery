@@ -89,6 +89,15 @@ const PlaceOrder = () => {
         return
       }
 
+      let paymentCompleted = false
+      let pendingHandled = false
+      const goToPendingOrders = () => {
+        if (pendingHandled) return
+        pendingHandled = true
+        alert('Order placed, payment pending')
+        navigate('/myorders')
+      }
+
       const options = {
         key: response.data.keyId,
         amount: response.data.amount,
@@ -115,21 +124,28 @@ const PlaceOrder = () => {
             )
 
             if (verifyResponse.data.success) {
+              paymentCompleted = true
               clearCart()
               navigate('/myorders')
             } else {
-              alert(verifyResponse.data.message || 'Payment verification failed')
+              goToPendingOrders()
             }
           } catch (error) {
-            alert(error.response?.data?.message || 'Payment verification failed')
+            goToPendingOrders()
           }
         },
         modal: {
-          ondismiss: () => setLoading(false),
+          ondismiss: () => {
+            setLoading(false)
+            if (!paymentCompleted) {
+              goToPendingOrders()
+            }
+          },
         },
       }
 
       const razorpay = new window.Razorpay(options)
+      razorpay.on('payment.failed', goToPendingOrders)
       razorpay.open()
     } catch (error) {
       alert(error.response?.data?.message || 'Unable to place order')
