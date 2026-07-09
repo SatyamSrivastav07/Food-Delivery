@@ -1,59 +1,96 @@
-import React, { createContext, useState } from 'react';
-import { food_list } from '../assets/assets';
+import React, { createContext, useEffect, useState } from "react";
+import axios from "axios";
+import { food_list as localFoodList } from "../assets/assets"; // local data
 
-export const StoreContext = createContext(null);
+export const StoreContext = createContext();
 
-const StoreContextProvider = (props) => {
-    const [cartItems, setCartItems] = useState({});
+const StoreContextProvider = ({ children }) => {
+  const [cartItems, setCartItems] = useState({});
+  const [token, setToken] = useState(localStorage.getItem("token") || "");
+  const [food_list, setFoodList] = useState([]);
 
-    const addToCart = (itemId) => {
-        if (!cartItems[itemId]) {
-            setCartItems((prev) => ({ ...prev, [itemId]: 1 }));
-        } else {
-            setCartItems((prev) => ({ ...prev, [itemId]: prev[itemId] + 1 }));
-        }
-    };
+  const apiUrl = "http://localhost:4000/api"; // backend API
+  const baseUrl = "http://localhost:4000";    // for image base path
 
-    const removeFromCart = (itemId) => {
-        setCartItems((prev) => ({ ...prev, [itemId]: prev[itemId] - 1 }));
-    };
+  // ➕ Add to Cart
+  const addToCart = (itemId) => {
+    setCartItems((prev) => ({
+      ...prev,
+      [itemId]: (prev[itemId] || 0) + 1,
+    }));
+  };
 
-    const getTotalCartAmount = () => {
-        let totalAmount = 0;
-        for (const itemId in cartItems) {
-            if (cartItems[itemId] <= 0) continue;
-            let itemInfo = food_list.find((product) => product.id === Number(itemId));
-            if (itemInfo) {
-                totalAmount += itemInfo.price * cartItems[itemId];
-            }
-        }
-        return totalAmount;
-    };
+  // ➖ Remove from Cart
+  const removeFromCart = (itemId) => {
+    setCartItems((prev) => {
+      if (prev[itemId] > 1) return { ...prev, [itemId]: prev[itemId] - 1 };
+      const updated = { ...prev };
+      delete updated[itemId];
+      return updated;
+    });
+  };
 
-    const getTotalCartItems = () => {
-        let totalItems = 0;
-        for (const itemId in cartItems) {
-            if (cartItems[itemId] > 0) {
-                totalItems += cartItems[itemId];
-            }
-        }
-        return totalItems;
-    };
+  // 💰 Total Cart Amount
+  const getTotalCartAmount = () => {
+    return Object.entries(cartItems).reduce((total, [id, qty]) => {
+      const item = food_list.find((f) => f._id === id || f._id === Number(id));
+      return item ? total + item.price * qty : total;
+    }, 0);
+  };
 
-    const contextValue = {
+  // 🛒 Total Cart Items
+  const getTotalCartItems = () =>
+    Object.values(cartItems).reduce((a, b) => a + b, 0);
+
+  // 🍔 Fetch food list from backend + local merge
+  const fetchFoodList = async () => {
+    try {
+      const response = await axios.get(`${apiUrl}/food/list`);
+      let backendList = [];
+
+      if (Array.isArray(response.data)) backendList = response.data;
+      else if (Array.isArray(response.data.data)) backendList = response.data.data;
+
+      // ✅ Mark backend items
+      backendList = backendList.map(item => ({ ...item, source: "backend" }));
+
+      // ✅ Mark local items
+      const localListWithSource = localFoodList.map(item => ({
+        ...item,
+        source: "local"
+      }));
+
+      // ✅ Merge both
+      setFoodList([...backendList, ...localListWithSource]);
+    } catch (err) {
+      console.error("Error fetching food list:", err);
+      // fallback to local
+      setFoodList(localFoodList.map(item => ({ ...item, source: "local" })));
+    }
+  };
+
+  useEffect(() => {
+    fetchFoodList();
+  }, []);
+
+  return (
+    <StoreContext.Provider
+      value={{
         food_list,
         cartItems,
         addToCart,
         removeFromCart,
         getTotalCartAmount,
-        getTotalCartItems
-    };
-
-    return (
-        <StoreContext.Provider value={contextValue}>
-            {props.children}
-        </StoreContext.Provider>
-    );
+        getTotalCartItems,
+        apiUrl,
+        baseUrl,
+        token,
+        setToken,
+      }}
+    >
+      {children}
+    </StoreContext.Provider>
+  );
 };
 
 export default StoreContextProvider;
