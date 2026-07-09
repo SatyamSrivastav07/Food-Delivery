@@ -23,9 +23,17 @@ const allowedOrigins = [
   "http://localhost:5174",
 ].filter(Boolean);
 
+const isVercelOrigin = (origin) => {
+  try {
+    return new URL(origin).hostname.endsWith(".vercel.app");
+  } catch {
+    return false;
+  }
+};
+
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.includes(origin) || isVercelOrigin(origin)) {
       return callback(null, true);
     }
     callback(new Error("Not allowed by CORS"));
