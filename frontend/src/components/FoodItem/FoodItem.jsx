@@ -4,13 +4,8 @@ import { assets } from "../../assets/assets";
 import { StoreContext } from "../../context/StoreContext";
 
 const FoodItem = ({ _id, name, price, description, image, source }) => {
-  const { cartItems, addToCart, removeFromCart, baseUrl } = useContext(StoreContext);
-
-  // ✅ Correct image URL handling
-  const imageUrl =
-    source === "backend"
-      ? `${baseUrl}/images/${image}`   // backend image (uploads folder)
-      : image;                         // local imported image
+  const { cartItems, addToCart, removeFromCart, getImageUrl } = useContext(StoreContext);
+  const imageUrl = getImageUrl({ image, source });
 
   return (
     <div className="food-item">

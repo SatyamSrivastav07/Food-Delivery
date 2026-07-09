@@ -6,13 +6,12 @@ import Cart from "./pages/Cart/Cart";
 import Footer from "./components/Footer/Footer";
 import PlaceOrder from "./pages/PlaceOrder/PlaceOrder";
 import LoginPopup from "./components/LoginPopup/LoginPopup";
-import StoreContextProvider from "./context/StoreContext";
 
 const App = () => {
   const [showLogin, setShowLogin] = useState(false);
 
   return (
-    <StoreContextProvider>
+    <>
       {showLogin && <LoginPopup setShowLogin={setShowLogin} />}
 
       <div className="app">
@@ -25,7 +24,7 @@ const App = () => {
       </div>
 
       <Footer />
-    </StoreContextProvider>
+    </>
   );
 };
 

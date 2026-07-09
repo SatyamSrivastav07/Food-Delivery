@@ -4,7 +4,7 @@ import { StoreContext } from '../../context/StoreContext';
 import { useNavigate } from 'react-router-dom';
 
 const Cart = () => {
-  const { cartItems, food_list, removeFromCart, baseUrl } = useContext(StoreContext);
+  const { cartItems, food_list, removeFromCart, getImageUrl } = useContext(StoreContext);
   const navigate = useNavigate();
 
   const subtotal = food_list.reduce((acc, item) => {
@@ -32,7 +32,7 @@ const Cart = () => {
         {cartFoodItems.length > 0 ? cartFoodItems.map(item => (
           <div key={item._id}>
             <div className='cart-items-title cart-items-item'>
-              <img src={`${baseUrl}/images/${item.image}`} alt={item.name} />
+              <img src={getImageUrl(item)} alt={item.name} />
               <p>{item.name}</p>
               <p>₹ {item.price}</p>
               <p>{cartItems[item._id]}</p>

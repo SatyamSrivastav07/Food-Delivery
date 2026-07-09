@@ -1,6 +1,6 @@
 import React, { createContext, useEffect, useState } from "react";
 import axios from "axios";
-import { food_list as localFoodList } from "../assets/assets"; // local data
+import { food_list as localFoodList } from "../assets/assets";
 
 export const StoreContext = createContext();
 
@@ -9,19 +9,25 @@ const StoreContextProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem("token") || "");
   const [food_list, setFoodList] = useState([]);
 
-  const apiUrl = "http://localhost:4000/api"; // backend API
-  const baseUrl = "http://localhost:4000";    // for image base path
+  const configuredUrl = import.meta.env.VITE_API_URL || "http://localhost:4000";
+  const baseUrl = configuredUrl.replace(/\/api\/?$/, "").replace(/\/$/, "");
+  const apiUrl = `${baseUrl}/api`;
+  const authHeaders = token ? { token } : {};
 
-  // ➕ Add to Cart
-  const addToCart = (itemId) => {
+  const getImageUrl = (item) => {
+    if (!item?.image) return "";
+    if (item.source === "backend") return `${baseUrl}/images/${item.image}`;
+    return item.image;
+  };
+
+  const updateLocalCartAdd = (itemId) => {
     setCartItems((prev) => ({
       ...prev,
       [itemId]: (prev[itemId] || 0) + 1,
     }));
   };
 
-  // ➖ Remove from Cart
-  const removeFromCart = (itemId) => {
+  const updateLocalCartRemove = (itemId) => {
     setCartItems((prev) => {
       if (prev[itemId] > 1) return { ...prev, [itemId]: prev[itemId] - 1 };
       const updated = { ...prev };
@@ -30,48 +36,87 @@ const StoreContextProvider = ({ children }) => {
     });
   };
 
-  // 💰 Total Cart Amount
+  const addToCart = async (itemId) => {
+    if (!token) {
+      updateLocalCartAdd(itemId);
+      return;
+    }
+
+    try {
+      const response = await axios.post(
+        `${apiUrl}/cart/add`,
+        { itemId },
+        { headers: authHeaders }
+      );
+      if (response.data.success) setCartItems(response.data.cartData || {});
+    } catch (err) {
+      console.error("Error adding item to cart:", err);
+    }
+  };
+
+  const removeFromCart = async (itemId) => {
+    if (!token) {
+      updateLocalCartRemove(itemId);
+      return;
+    }
+
+    try {
+      const response = await axios.post(
+        `${apiUrl}/cart/remove`,
+        { itemId },
+        { headers: authHeaders }
+      );
+      if (response.data.success) setCartItems(response.data.cartData || {});
+    } catch (err) {
+      console.error("Error removing item from cart:", err);
+    }
+  };
+
+  const fetchCart = async () => {
+    if (!token) return;
+
+    try {
+      const response = await axios.get(`${apiUrl}/cart/`, { headers: authHeaders });
+      if (response.data.success) setCartItems(response.data.cartData || {});
+    } catch (err) {
+      console.error("Error fetching cart:", err);
+    }
+  };
+
   const getTotalCartAmount = () => {
     return Object.entries(cartItems).reduce((total, [id, qty]) => {
-      const item = food_list.find((f) => f._id === id || f._id === Number(id));
+      const item = food_list.find((food) => food._id === id || food._id === Number(id));
       return item ? total + item.price * qty : total;
     }, 0);
   };
 
-  // 🛒 Total Cart Items
   const getTotalCartItems = () =>
-    Object.values(cartItems).reduce((a, b) => a + b, 0);
+    Object.values(cartItems).reduce((total, qty) => total + qty, 0);
 
-  // 🍔 Fetch food list from backend + local merge
   const fetchFoodList = async () => {
     try {
       const response = await axios.get(`${apiUrl}/food/list`);
-      let backendList = [];
+      const backendData = Array.isArray(response.data)
+        ? response.data
+        : response.data.data || [];
 
-      if (Array.isArray(response.data)) backendList = response.data;
-      else if (Array.isArray(response.data.data)) backendList = response.data.data;
+      const backendList = backendData.map((item) => ({ ...item, source: "backend" }));
+      const localList = localFoodList.map((item) => ({ ...item, source: "local" }));
 
-      // ✅ Mark backend items
-      backendList = backendList.map(item => ({ ...item, source: "backend" }));
-
-      // ✅ Mark local items
-      const localListWithSource = localFoodList.map(item => ({
-        ...item,
-        source: "local"
-      }));
-
-      // ✅ Merge both
-      setFoodList([...backendList, ...localListWithSource]);
+      setFoodList([...backendList, ...localList]);
     } catch (err) {
       console.error("Error fetching food list:", err);
-      // fallback to local
-      setFoodList(localFoodList.map(item => ({ ...item, source: "local" })));
+      setFoodList(localFoodList.map((item) => ({ ...item, source: "local" })));
     }
   };
 
   useEffect(() => {
     fetchFoodList();
   }, []);
+
+  useEffect(() => {
+    fetchCart();
+  }, [token]);
 
   return (
     <StoreContext.Provider
@@ -82,6 +127,7 @@ const StoreContextProvider = ({ children }) => {
         removeFromCart,
         getTotalCartAmount,
         getTotalCartItems,
+        getImageUrl,
         apiUrl,
         baseUrl,
         token,

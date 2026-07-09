@@ -5,7 +5,7 @@ import { StoreContext } from "../../context/StoreContext";
 import axios from "axios";
 
 const LoginPopup = ({ setShowLogin }) => {
-  const { baseUrl, setToken } = useContext(StoreContext);
+  const { apiUrl, setToken } = useContext(StoreContext);
 
   const [currState, setCurrState] = useState("login"); // "login" or "signup"
   const [data, setData] = useState({
@@ -29,7 +29,7 @@ const LoginPopup = ({ setShowLogin }) => {
           ? { email: data.email, password: data.password }
           : data;
 
-      const res = await axios.post(`${baseUrl}/api${endpoint}`, payload);
+      const res = await axios.post(`${apiUrl}${endpoint}`, payload);
 
       if (res.data.success) {
         // Save token
@@ -41,7 +41,7 @@ const LoginPopup = ({ setShowLogin }) => {
       }
     } catch (error) {
       console.error(error.response || error);
-      alert("Server error. Please try again.");
+      alert(error.response?.data?.message || "Server error. Please try again.");
     }
   };
 
