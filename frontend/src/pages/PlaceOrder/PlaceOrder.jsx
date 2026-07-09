@@ -102,7 +102,7 @@ const PlaceOrder = () => {
         key: response.data.keyId,
         amount: response.data.amount,
         currency: response.data.currency,
-        name: 'Food Delivery',
+        name: 'MealMint',
         description: 'Food order payment',
         order_id: response.data.razorpayOrderId,
         prefill: {

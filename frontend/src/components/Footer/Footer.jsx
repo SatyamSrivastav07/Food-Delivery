@@ -28,14 +28,13 @@ const Footer = () => {
             <div className='footer-content-right'>
                 <h2>GET IN TOUCH</h2>
                 <ul>
-                    <li>Email: info@fooddelivery.com</li>
+                    <li>Email: satyamsricode07@gmail.com</li>
                     <li>Phone: +123 456 7890</li>
                 </ul>
             </div>
-                
         </div>
         <hr />
-        <p className='footer-copyright'>© 2023 Food Delivery. All rights reserved.</p>
+        <p className='footer-copyright'>© 2023 MealMint. All rights reserved.</p>
 
     </div>
   )
