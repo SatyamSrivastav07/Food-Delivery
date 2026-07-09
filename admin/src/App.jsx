@@ -11,7 +11,7 @@ import 'react-toastify/dist/ReactToastify.css';
 
 const App = () => {
 
-  const url = (import.meta.env.VITE_API_URL || 'http://localhost:4000').replace(/\/$/, '');
+  const url = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 
   return (
     <div>

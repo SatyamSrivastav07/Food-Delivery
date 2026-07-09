@@ -9,7 +9,7 @@ const StoreContextProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem("token") || "");
   const [food_list, setFoodList] = useState([]);
 
-  const configuredUrl = import.meta.env.VITE_API_URL || "http://localhost:4000";
+  const configuredUrl = import.meta.env.VITE_API_URL || "";
   const baseUrl = configuredUrl.replace(/\/api\/?$/, "").replace(/\/$/, "");
   const apiUrl = `${baseUrl}/api`;
   const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
