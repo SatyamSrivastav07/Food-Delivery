@@ -5,8 +5,7 @@ import axios from 'axios'
 import { toast } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 
-const Add = () => {
-  const url = "http://localhost:4000"
+const Add = ({ url }) => {
   const [image, setImage] = useState(false)
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState({
@@ -24,6 +23,12 @@ const Add = () => {
   const onSubmitHandler = async (event) => {
     event.preventDefault()
     setLoading(true)
+
+    if (!image) {
+      toast.error("Please upload an image")
+      setLoading(false)
+      return
+    }
 
     const formData = new FormData()
     formData.append("name", data.name)
@@ -50,7 +55,7 @@ const Add = () => {
         toast.error(response.data.message || "Failed to add product")
       }
     } catch (err) {
-      toast.error("Server error, please try again later!")
+      toast.error(err.response?.data?.message || "Server error, please try again later!")
       console.error(err)
     } finally {
       setLoading(false)
