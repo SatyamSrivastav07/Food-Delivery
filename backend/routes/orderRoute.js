@@ -6,14 +6,14 @@ import {
   userOrders,
   verifyOrder,
 } from "../controllers/orderController.js";
-import { authMiddleware } from "../middleware/auth.js";
+import { verifyAdmin, verifyUser } from "../middleware/auth.js";
 
 const orderRouter = express.Router();
 
-orderRouter.post("/place", authMiddleware, placeOrder);
-orderRouter.post("/verify", authMiddleware, verifyOrder);
-orderRouter.get("/userorders", authMiddleware, userOrders);
-orderRouter.get("/list", listOrders);
-orderRouter.post("/status", updateStatus);
+orderRouter.post("/place", verifyUser, placeOrder);
+orderRouter.post("/verify", verifyUser, verifyOrder);
+orderRouter.get("/userorders", verifyUser, userOrders);
+orderRouter.get("/list", verifyAdmin, listOrders);
+orderRouter.post("/status", verifyAdmin, updateStatus);
 
 export default orderRouter;

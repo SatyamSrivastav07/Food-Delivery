@@ -3,7 +3,7 @@ import './List.css';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
-const List = ({url}) => {
+const List = ({url, adminToken, onUnauthorized}) => {
     const [list, SetList] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
@@ -31,7 +31,11 @@ const List = ({url}) => {
 
     const removeFood = async (foodId) => {
         try {
-            const response = await axios.post(`${url}/api/food/remove`,{id:foodId});
+            const response = await axios.post(
+                `${url}/api/food/remove`,
+                {id:foodId},
+                { headers: { Authorization: `Bearer ${adminToken}` } }
+            );
             await fetchList();
             if(response.data.success){
                 toast.success("Food item removed successfully");
@@ -39,6 +43,10 @@ const List = ({url}) => {
                 toast.error(response.data.message || "Error removing food item");
             }
         } catch (error) {
+            if (error.response?.status === 401 || error.response?.status === 403) {
+                onUnauthorized();
+                return;
+            }
             toast.error(error.response?.data?.message || "Error removing food item");
         }
     }

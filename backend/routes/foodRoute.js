@@ -4,6 +4,7 @@ import multer from "multer"
 import fs from "fs"
 import path from "path"
 import { fileURLToPath } from "url"
+import { verifyAdmin } from "../middleware/auth.js"
 
 const foodRouter = express.Router()
 const __filename = fileURLToPath(import.meta.url)
@@ -35,8 +36,8 @@ const uploadImage = (req, res, next) => {
   })
 }
 
-foodRouter.post('/add', uploadImage, addFood)
+foodRouter.post('/add', verifyAdmin, uploadImage, addFood)
 foodRouter.get('/list', listFoods)
-foodRouter.post('/remove', removeFood)
+foodRouter.post('/remove', verifyAdmin, removeFood)
 
 export default foodRouter

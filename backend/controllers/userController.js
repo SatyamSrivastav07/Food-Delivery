@@ -3,8 +3,8 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import validator from "validator";
 
-const createToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+const createToken = (id, role = "user") => {
+  return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "7d" });
 };
 
 export const registerUser = async (req, res) => {
@@ -52,12 +52,13 @@ export const registerUser = async (req, res) => {
     });
 
     const user = await newUser.save();
-    const token = createToken(user._id);
+    const token = createToken(user._id, user.role);
 
     res.status(201).json({
       success: true,
       message: "User registered successfully",
       token,
+      role: user.role,
     });
   } catch (error) {
     console.error("Register user error:", error);
@@ -93,8 +94,9 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    const token = createToken(user._id);
-    res.json({ success: true, message: "Login successful", token });
+    const role = user.role || "user";
+    const token = createToken(user._id, role);
+    res.json({ success: true, message: "Login successful", token, role });
   } catch (error) {
     console.error("Login user error:", error);
     res.status(500).json({ success: false, message: "Internal Server Error" });

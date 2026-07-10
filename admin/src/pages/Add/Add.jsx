@@ -5,7 +5,7 @@ import axios from 'axios'
 import { toast } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 
-const Add = ({ url }) => {
+const Add = ({ url, adminToken, onUnauthorized }) => {
   const [image, setImage] = useState(false)
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState({
@@ -39,7 +39,10 @@ const Add = ({ url }) => {
 
     try {
       const response = await axios.post(`${url}/api/food/add`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${adminToken}`,
+        },
       })
 
       if (response.data.success) {
@@ -55,6 +58,10 @@ const Add = ({ url }) => {
         toast.error(response.data.message || "Failed to add product")
       }
     } catch (err) {
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        onUnauthorized()
+        return
+      }
       toast.error(err.response?.data?.message || "Server error, please try again later!")
       console.error(err)
     } finally {

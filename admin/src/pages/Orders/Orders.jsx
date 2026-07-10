@@ -11,7 +11,7 @@ const orderStatuses = [
   'Delivered',
 ]
 
-const Orders = ({ url }) => {
+const Orders = ({ url, adminToken, onUnauthorized }) => {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -21,7 +21,9 @@ const Orders = ({ url }) => {
     setError('')
 
     try {
-      const response = await axios.get(`${url}/api/order/list`)
+      const response = await axios.get(`${url}/api/order/list`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      })
       if (response.data.success) {
         setOrders(response.data.data || [])
       } else {
@@ -30,6 +32,10 @@ const Orders = ({ url }) => {
         toast.error(message)
       }
     } catch (err) {
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        onUnauthorized()
+        return
+      }
       const message = err.response?.data?.message || 'Server error'
       setError(message)
       toast.error(message)
@@ -40,10 +46,14 @@ const Orders = ({ url }) => {
 
   const updateStatus = async (orderId, status) => {
     try {
-      const response = await axios.post(`${url}/api/order/status`, {
-        orderId,
-        status,
-      })
+      const response = await axios.post(
+        `${url}/api/order/status`,
+        {
+          orderId,
+          status,
+        },
+        { headers: { Authorization: `Bearer ${adminToken}` } }
+      )
 
       if (response.data.success) {
         toast.success(response.data.message || 'Order status updated')
@@ -56,6 +66,10 @@ const Orders = ({ url }) => {
         toast.error(response.data.message || 'Error updating order status')
       }
     } catch (err) {
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        onUnauthorized()
+        return
+      }
       toast.error(err.response?.data?.message || 'Error updating order status')
     }
   }
