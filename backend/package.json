@@ -1,7 +1,7 @@
 {
-  "name": "backend",
+  "name": "mealmint-backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "MealMint backend API",
   "main": "server.js",
   "type": "module",
   "scripts": {

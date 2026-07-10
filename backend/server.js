@@ -50,7 +50,7 @@ app.use("/api/order", orderRouter);
 app.use("/images", express.static(uploadsPath));
 
 app.get("/", (req, res) => {
-  res.send("API running successfully...");
+  res.send("MealMint API running successfully...");
 });
 
 app.listen(PORT, () => {
